@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Snake Arena</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #1a1d24;
+    overflow: hidden;
+    font-family: system-ui, sans-serif;
+    color: #e4e6eb;
+    user-select: none;
+    touch-action: none;
+  }
+  #game { display: block; cursor: crosshair; }
+
+  /* HUD */
+  #hud {
+    position: fixed; top: 0; left: 0; right: 0;
+    padding: 12px 16px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    pointer-events: none; z-index: 10;
+  }
+  .panel {
+    background: rgba(30, 33, 41, 0.85);
+    border: 1px solid #3a3e48;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  #stats { line-height: 1.6; }
+  #stats b { color: #e4e6eb; }
+  #leaderboard { min-width: 200px; }
+  #leaderboard h3 {
+    font-size: 11px;
+    color: #8b929e;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .lb-row {
+    display: flex; justify-content: space-between;
+    padding: 2px 0;
+  }
+  .lb-row.you { color: #6cb6ff; font-weight: bold; }
+  .lb-name { display: flex; align-items: center; gap: 6px; }
+  .lb-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* Minimap */
+  #minimap {
+    position: fixed; bottom: 16px; right: 16px;
+    width: 140px; height: 140px;
+    background: rgba(30, 33, 41, 0.85);
+    border: 1px solid #3a3e48;
+    border-radius: 50%;
+    z-index: 10;
+    overflow: hidden;
+  }
+
+  /* Weapon HUD */
+  #weaponHud {
+    position: fixed; bottom: 16px; left: 16px;
+    background: rgba(30, 33, 41, 0.85);
+    border: 1px solid #3a3e48;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 13px;
+    z-index: 10;
+    display: none;
+  }
+  #weaponHud.show { display: block; }
+  #weaponName { color: #e4e6eb; font-weight: bold; margin-bottom: 4px; }
+  #weaponAmmo { color: #8b929e; font-size: 12px; }
+
+  /* Controles Mobile */
+  #mobileControls {
+    display: none;
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 20;
+  }
+  #joystickZone {
+    position: absolute;
+    bottom: 30px;
+    left: 30px;
+    width: 120px;
+    height: 120px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    pointer-events: auto;
+    touch-action: none;
+  }
+  #joystickKnob {
+    position: absolute;
+    top: 35px;
+    left: 35px;
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.35);
+    border-radius: 50%;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    transition: transform 0.05s ease-out;
+  }
+  #mobileActionButton {
+    position: absolute;
+    bottom: 40px;
+    right: 30px;
+    width: 85px;
+    height: 85px;
+    background: rgba(108, 182, 255, 0.4);
+    border: 3px solid #6cb6ff;
+    border-radius: 50%;
+    color: #e4e6eb;
+    font-weight: bold;
+    font-size: 14px;
+    text-transform: uppercase;
+    pointer-events: auto;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  }
+
+  /* Menus */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(15, 17, 22, 0.95);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  .overlay.hidden { display: none; }
+  .menu {
+    text-align: center;
+    padding: 32px 40px;
+    background: #1e2129;
+    border: 1px solid #3a3e48;
+    border-radius: 6px;
+    max-width: 420px;
+    width: 90%;
+  }
+  .menu h1 {
+    font-size: 32px;
+    color: #e4e6eb;
+    margin-bottom: 4px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .menu .sub {
+    color: #8b929e;
+    margin-bottom: 24px;
+    font-size: 13px;
+  }
+  
+  /* Inputs Customizados */
+  .input-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .menu input[type="text"], .menu input[type="number"] {
+    width: 100%;
+    padding: 10px 14px;
+    background: #15171c;
+    border: 1px solid #3a3e48;
+    border-radius: 4px;
+    color: #e4e6eb;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .input-group input[type="text"] { flex: 1; margin-bottom: 0; }
+  .input-group input[type="color"] {
+    width: 44px; height: 40px;
+    padding: 2px;
+    background: #15171c;
+    border: 1px solid #3a3e48;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .menu input:focus { border-color: #6cb6ff; }
+  
+  /* Botoes */
+  .btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .menu button {
+    width: 100%;
+    padding: 12px;
+    background: #6cb6ff;
+    color: #15171c;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .menu button:hover { background: #8cc4ff; }
+  .menu button.btn-online { background: #ff7b72; color: #15171c; }
+  .menu button.btn-online:hover { background: #ff9a93; }
+  
+  .controls-info {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #3a3e48;
+    color: #8b929e;
+    font-size: 12px;
+    line-height: 1.7;
+    text-align: left;
+  }
+  .controls-info b { color: #e4e6eb; }
+  .death-stats { margin: 16px 0; font-size: 14px; color: #c0c4cc; line-height: 1.7; }
+  .death-stats span { color: #e4e6eb; font-weight: bold; }
+  #statusMsg { font-size: 12px; color: #ff7b72; margin-top: 10px; display: none; }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<!-- Joystick e Botão de Ação Mobile -->
+<div id="mobileControls">
+  <div id="joystickZone">
+    <div id="joystickKnob"></div>
+  </div>
+  <button id="mobileActionButton">BOOST</button>
+</div>
+
+<div id="hud">
+  <div id="stats" class="panel">
+    Tamanho: <b id="size">10</b><br>
+    Comprimento: <b id="length">10</b><br>
+    Abates: <b id="kills">0</b><br>
+    Posição: <b id="rank">#1</b>
+  </div>
+  <div id="leaderboard" class="panel">
+    <h3>Ranking</h3>
+    <div id="lbList"></div>
+  </div>
+</div>
+
+<canvas id="minimap" width="140" height="140"></canvas>
+
+<div id="weaponHud">
+  <div id="weaponName">—</div>
+  <div id="weaponAmmo">— / —</div>
+</div>
+
+<div id="startMenu" class="overlay">
+  <div class="menu">
+    <h1>SNAKE ARENA</h1>
+    <div class="sub" id="menuSubtitle">Cresça, lute e domine a arena</div>
+    
+    <div class="input-group">
+      <input id="playerName" type="text" placeholder="Seu nome" maxlength="14" value="Você">
+      <input id="playerColor" type="color" value="#6cb6ff" title="Escolha sua cor">
+    </div>
+    
+    <div class="btn-group">
+      <button id="startBtn">JOGAR OFFLINE (Com Bots)</button>
+      <button id="onlineBtn" class="btn-online">JOGAR ONLINE (Sem Bots)</button>
+    </div>
+    <div id="statusMsg">Conectando aos servidores...</div>
+
+    <div class="controls-info">
+      <b>MOUSE / TOQUE</b> — controlar direção<br>
+      <b>WASD / Setas</b> — controlar direção<br>
+      <b>SHIFT / BOTÃO ACTION</b> — boost ou atirar<br>
+      Coma esferas, evite bater a cabeça nos outros.<br>
+      <span style="color:#8b929e;font-size:11px;">Existem cheats secretos na partida...</span>
+    </div>
+  </div>
+</div>
+
+<div id="deathMenu" class="overlay hidden">
+  <div class="menu">
+    <h1>VOCÊ MORREU</h1>
+    <div class="sub">fim de jogo</div>
+    <div class="death-stats">
+      Tamanho final: <span id="deathSize">0</span><br>
+      Abates: <span id="deathKills">0</span><br>
+      Tempo vivo: <span id="deathTime">0s</span>
+    </div>
+    <button id="restartBtn">VOLTAR AO MENU</button>
+  </div>
+</div>
+
+<div id="cheatOverlay" class="overlay hidden">
+  <div class="menu">
+    <h1>MODO DEUS</h1>
+    <div class="sub">cheat ativado</div>
+    <input id="inGameCustomSize" type="number" placeholder="Digite seu novo tamanho" min="10" max="50000" style="margin-bottom: 14px; width: 100%;">
+    <button id="applyCheatBtn">APLICAR</button>
+  </div>
+</div>
+
+<!-- Usando module para permitir importação limpa do Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+import { getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+
+// =================== CONFIG & SETUP FIREBASE ===================
+let db, auth;
+let isFirebaseInitialized = false;
+let myUid = null;
+let isOnlineMode = false;
+let unsubscribePlayers = null;
+let syncTimer = 0;
+
+async function initFirebase() {
+  if (isFirebaseInitialized) return true;
+  try {
+    const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+    let firebaseConfig;
+    if (configStr) {
+      firebaseConfig = JSON.parse(configStr);
+    } else {
+      firebaseConfig = {
+        apiKey: "AIzaSyA3fvAyzsR0AWXT1jCbWJQaLAAsFeQ8VaU",
+        authDomain: "snakeqiwuejqoi.firebaseapp.com",
+        projectId: "snakeqiwuejqoi",
+        storageBucket: "snakeqiwuejqoi.firebasestorage.app",
+        messagingSenderId: "89761770281",
+        appId: "1:89761770281:web:381f38c2eaa866b5ace538"
+      };
+    }
+
+    const app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+
+    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+      await signInWithCustomToken(auth, __initial_auth_token);
+    } else {
+      await signInAnonymously(auth);
+    }
+    
+    isFirebaseInitialized = true;
+    return true;
+  } catch(e) {
+    console.error("Erro ao iniciar Firebase:", e);
+    return false;
+  }
+}
+
+// =================== CONFIGURAÇÕES DO JOGO ===================
+const WORLD_SIZE = 8000;
+const WORLD_RADIUS = WORLD_SIZE / 2;
+const MAP_CX = WORLD_SIZE / 2;
+const MAP_CY = WORLD_SIZE / 2;
+
+const FOOD_COUNT = 1500;
+let CURRENT_BOT_COUNT = 18;
+const BASE_RADIUS = 8;
+const SEGMENT_SPACING = 0.55;
+const BASE_SPEED = 2.6;
+const BOOST_MULT = 1.85;
+const BOOST_COST_PER_SEC = 4;
+const FOOD_DROP_RATIO = 0.30;
+const TURN_RATE = 0.12;
+const CAM_LERP = 0.10;
+
+const BASE_ZOOM_RADIUS = BASE_RADIUS + Math.sqrt(10) * 1.4;
+
+const WEAPONS = {
+  glock: { name: 'Glock 17', code: '1234567890', damage: 18, fireRate: 0.13, speed: 18, range: 700, spread: 0.04, pellets: 1, ammo: 17, bulletColor: '#ffd866', muzzleSize: 8 },
+  doze: { name: 'Shotgun 12', code: '0987654321', damage: 12, fireRate: 0.85, speed: 16, range: 500, spread: 0.22, pellets: 8, ammo: 6, bulletColor: '#ff7b50', muzzleSize: 14 }
+};
+const BULLET_SIZE_DMG_MULT = 1.0; 
+
+// =================== SETUP DO CANVAS & DISPOSITIVO ===================
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const minimap = document.getElementById('minimap');
+const mctx = minimap.getContext('2d');
+
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window);
+
+if (isMobile) {
+  document.getElementById('mobileControls').style.display = 'block';
+}
+
+let W = 0, H = 0;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+const mouse = { x: 0, y: 0, down: false, worldX: 0, worldY: 0 };
+const keys = {};
+let controlMode = isMobile ? 'keys' : 'mouse';
+
+canvas.addEventListener('mousemove', e => {
+  if (isMobile) return;
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+  if (Math.abs(e.movementX) + Math.abs(e.movementY) > 1) controlMode = 'mouse';
+});
+canvas.addEventListener('mousedown', e => {
+  if (isMobile) return;
+  if (e.button === 0) {
+    mouse.down = true;
+    if (currentWeapon) tryShoot();
+  }
+});
+canvas.addEventListener('mouseup', e => { if (e.button === 0) mouse.down = false; });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// Controles de Toque Móveis (Analógico Virtual)
+const joystickZone = document.getElementById('joystickZone');
+const joystickKnob = document.getElementById('joystickKnob');
+const actionBtn = document.getElementById('mobileActionButton');
+let joystickActive = false;
+let joystickStart = { x: 0, y: 0 };
+
+joystickZone.addEventListener('touchstart', e => {
+  e.preventDefault();
+  joystickActive = true;
+  const touch = e.touches[0];
+  const rect = joystickZone.getBoundingClientRect();
+  joystickStart.x = rect.left + rect.width / 2;
+  joystickStart.y = rect.top + rect.height / 2;
+  controlMode = 'keys';
+}, { passive: false });
+
+joystickZone.addEventListener('touchmove', e => {
+  if (!joystickActive) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  const dx = touch.clientX - joystickStart.x;
+  const dy = touch.clientY - joystickStart.y;
+  const distance = Math.hypot(dx, dy);
+  const maxRadius = 40; 
+  
+  const angle = Math.atan2(dy, dx);
+  if (player && player.alive) {
+    player.targetAngle = angle;
+  }
+  
+  const moveX = Math.cos(angle) * Math.min(distance, maxRadius);
+  const moveY = Math.sin(angle) * Math.min(distance, maxRadius);
+  
+  joystickKnob.style.transform = `translate(${moveX}px, ${moveY}px)`;
+}, { passive: false });
+
+function resetJoystick() {
+  joystickActive = false;
+  joystickKnob.style.transform = 'translate(0px, 0px)';
+}
+joystickZone.addEventListener('touchend', resetJoystick);
+joystickZone.addEventListener('touchcancel', resetJoystick);
+
+actionBtn.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (currentWeapon) {
+    tryShoot();
+  } else if (player) {
+    player.boosting = true;
+  }
+}, { passive: false });
+
+actionBtn.addEventListener('touchend', e => {
+  e.preventDefault();
+  if (player) {
+    player.boosting = false;
+  }
+});
+
+let codeBuffer = '';
+window.addEventListener('keydown', e => {
+  if (document.activeElement.tagName === 'INPUT') return;
+  keys[e.code] = true;
+  if (['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) {
+    controlMode = 'keys';
+  }
+  if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+    e.preventDefault();
+  }
+  if (e.key.length === 1 && e.key.match(/[a-z0-9]/i)) {
+    codeBuffer += e.key.toLowerCase();
+    if (codeBuffer.length > 20) codeBuffer = codeBuffer.slice(-20);
+    checkCheatCode();
+  }
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+function checkCheatCode() {
+  for (const id in WEAPONS) {
+    const w = WEAPONS[id];
+    if (codeBuffer.endsWith(w.code)) {
+      equipWeapon(id);
+      codeBuffer = '';
+      return;
+    }
+  }
+
+  if (codeBuffer.endsWith('talles')) {
+    codeBuffer = '';
+    if (player && player.alive) {
+      gameRunning = false; 
+      const cheatMenu = document.getElementById('cheatOverlay');
+      cheatMenu.classList.remove('hidden');
+      const input = document.getElementById('inGameCustomSize');
+      input.value = Math.floor(player.size);
+      input.focus();
+    }
+  }
+}
+
+// =================== FUNÇÕES ÚTEIS ===================
+function rand(a, b) { return a + Math.random() * (b - a); }
+function randInt(a, b) { return Math.floor(rand(a, b + 1)); }
+function dist2(x1, y1, x2, y2) {
+  const dx = x1 - x2, dy = y1 - y2;
+  return dx * dx + dy * dy;
+}
+function angleLerp(a, b, t) {
+  let diff = b - a;
+  while (diff > Math.PI)  diff -= Math.PI * 2;
+  while (diff < -Math.PI) diff += Math.PI * 2;
+  return a + diff * t;
+}
+
+const SNAKE_COLORS = [
+  '#6cb6ff', '#7ee787', '#ffa657', '#ff7b72', '#d2a8ff',
+  '#79c0ff', '#56d364', '#e3b341', '#f78166', '#bc8cff',
+  '#85b9d4', '#a5d6a7', '#ffcc80', '#ef9a9a', '#b39ddb'
+];
+
+const BOT_NAMES = ['Viper','Cobra','Sigma','Reaper','Boost','Ninja','Toxic','Hunter','Slither','Fang','Venom','Mamba','Spectre','Glitch','Phantom'];
+
+function shadeColor(hex, percent) {
+  let color = hex;
+  if (!color || color.length < 7) color = '#6cb6ff';
+  const num = parseInt(color.replace('#', ''), 16);
+  const amt = Math.round(2.55 * percent);
+  const R = Math.max(0, Math.min(255, (num >> 16) + amt));
+  const G = Math.max(0, Math.min(255, ((num >> 8) & 0x00FF) + amt));
+  const B = Math.max(0, Math.min(255, (num & 0x0000FF) + amt));
+  return '#' + (0x1000000 + (R << 16) + (G << 8) + B).toString(16).slice(1);
+}
+
+// =================== CLASSE SNAKE ===================
+class Snake {
+  constructor(x, y, name, isPlayer = false, colorValue = '#6cb6ff', startSize = 10) {
+    this.id = isPlayer ? (myUid || 'local') : Math.random().toString(36).substring(7);
+    this.x = x; this.y = y;
+    this.angle = rand(0, Math.PI * 2);
+    this.targetAngle = this.angle;
+    this.size = startSize; 
+    this.name = name;
+    this.isPlayer = isPlayer;
+    this.isNetwork = false; 
+    this.alive = true;
+    this.boosting = false;
+    this.kills = 0;
+    
+    this.color = colorValue;
+    this.colorDark = shadeColor(this.color, -25);
+    
+    this.weaponId = null;
+    this.aimAngle = 0;
+    
+    this.aiTimer = 0;
+    this.aiTarget = null;
+
+    this.history = [];
+    this.segments = [];
+    
+    for (let i = 0; i < 500; i++) {
+      this.history.push({x: this.x, y: this.y});
+    }
+  }
+
+  get radius() {
+    return BASE_RADIUS + Math.sqrt(this.size) * 1.4;
+  }
+
+  targetLength() {
+    return Math.floor(15 + this.size * 1.2);
+  }
+
+  get segSpacing() {
+    return this.radius * SEGMENT_SPACING;
+  }
+
+  update(dt, snakes, foods) {
+    if (!this.alive) return;
+
+    let speed = BASE_SPEED + (Math.sqrt(this.size) * 0.04);
+    
+    if (this.isNetwork) {
+      this.angle = angleLerp(this.angle, this.targetAngle, TURN_RATE);
+      this.x += Math.cos(this.angle) * speed * (dt * 60) * 0.8;
+      this.y += Math.sin(this.angle) * speed * (dt * 60) * 0.8;
+    } else {
+      const canBoost = this.boosting && this.size > 12;
+      if (canBoost) {
+        speed *= BOOST_MULT;
+        const cost = BOOST_COST_PER_SEC * dt;
+        this.size = Math.max(10, this.size - cost);
+        if (Math.random() < dt * 8 && this.segments.length > 5) {
+          const tail = this.segments[this.segments.length - 1];
+          if (tail) foods.push(new Food(tail.x + rand(-10, 10), tail.y + rand(-10, 10), 0.7, this.color));
+        }
+      }
+
+      this.angle = angleLerp(this.angle, this.targetAngle, TURN_RATE);
+      this.x += Math.cos(this.angle) * speed * (dt * 60);
+      this.y += Math.sin(this.angle) * speed * (dt * 60);
+
+      const distFromCenter = Math.hypot(this.x - MAP_CX, this.y - MAP_CY);
+      const maxDist = WORLD_RADIUS - this.radius;
+      if (distFromCenter > maxDist) {
+        const angleToCenter = Math.atan2(this.y - MAP_CY, this.x - MAP_CX);
+        this.x = MAP_CX + Math.cos(angleToCenter) * maxDist;
+        this.y = MAP_CY + Math.sin(angleToCenter) * maxDist;
+        if (!this.isPlayer) this.targetAngle = angleToCenter + Math.PI + rand(-0.5, 0.5);
+      }
+    }
+
+    this.history.unshift({x: this.x, y: this.y});
+    const maxHistory = Math.floor(this.targetLength() * (this.segSpacing / (speed * dt * 60)) + 50);
+    if (this.history.length > Math.max(maxHistory, 100)) {
+      this.history.pop();
+    }
+
+    const targetLen = this.targetLength();
+    const spacing = this.segSpacing;
+    
+    this.segments = [];
+    this.segments.push({x: this.x, y: this.y});
+
+    let curDist = 0;
+    let histIdx = 0;
+    for (let i = 1; i < targetLen; i++) {
+        let requiredDist = i * spacing;
+        while (histIdx < this.history.length - 1 && curDist < requiredDist) {
+            const p1 = this.history[histIdx];
+            const p2 = this.history[histIdx + 1];
+            curDist += Math.hypot(p1.x - p2.x, p1.y - p2.y);
+            histIdx++;
+        }
+        if (histIdx < this.history.length) {
+            this.segments.push({x: this.history[histIdx].x, y: this.history[histIdx].y});
+        } else {
+            const last = this.history[this.history.length - 1] || {x: this.x, y: this.y};
+            this.segments.push({x: last.x, y: last.y});
+        }
+    }
+  }
+
+  // NOVA COLISÃO PRECISA: CHECA SOMENTE A PONTINHA FRONTAL DA CABEÇA
+  checkHeadCollision(otherSnakes) {
+    if (!this.alive || this.isNetwork) return null;
+    
+    // Projetamos um facho estreito de colisão bem na ponta do focinho
+    const headCheckX = this.x + Math.cos(this.angle) * (this.radius * 0.4);
+    const headCheckY = this.y + Math.sin(this.angle) * (this.radius * 0.4);
+    
+    // O raio da área sensível da cabeça é pequeno, evitando mortes por raspões laterais
+    const collisionRadius = this.radius * 0.4;
+    
+    for (const other of otherSnakes) {
+      if (other === this || !other.alive) continue;
+      
+      const collisionDist = collisionRadius + other.radius;
+      const cd2 = collisionDist * collisionDist;
+      
+      // Colisão frontal direta (Cabeça com Cabeça)
+      const h2 = (collisionRadius + other.radius * 0.4) * (collisionRadius + other.radius * 0.4);
+      if (dist2(headCheckX, headCheckY, other.x, other.y) < h2) {
+         if (this.size <= other.size) {
+            return other; // A menor morre
+         }
+      }
+      
+      // Colisão de focinho contra Corpo do outro jogador
+      for (let i = 2; i < other.segments.length; i++) {
+        const s = other.segments[i];
+        if (dist2(headCheckX, headCheckY, s.x, s.y) < cd2) {
+          return other;
+        }
+      }
+    }
+    return null;
+  }
+
+  die(foods) {
+    if (!this.alive) return;
+    this.alive = false;
+    
+    if (this.isPlayer && isOnlineMode && isFirebaseInitialized) {
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'snake-arena-custom';
+      deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'online_players', myUid)).catch(console.error);
+    }
+
+    const dropTotal = this.size * FOOD_DROP_RATIO;
+    const dropCount = Math.max(8, Math.floor(this.segments.length * 0.6));
+    const valuePerFood = dropTotal / dropCount;
+    for (let i = 0; i < dropCount; i++) {
+      const seg = this.segments[Math.floor(i * this.segments.length / dropCount)];
+      if (!seg) continue;
+      foods.push(new Food(
+        seg.x + rand(-this.radius, this.radius),
+        seg.y + rand(-this.radius, this.radius),
+        Math.max(0.4, valuePerFood),
+        this.color
+      ));
+    }
+  }
+
+  takeDamage(dmg, foods) {
+    if (!this.alive) return;
+    this.size -= dmg * BULLET_SIZE_DMG_MULT;
+    if (this.size <= 8) {
+      this.size = 8;
+      this.die(foods);
+    }
+  }
+
+  draw(ctx) {
+    if (!this.alive) return;
+    const r = this.radius;
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    if (this.segments.length > 1) {
+      ctx.strokeStyle = this.colorDark;
+      ctx.lineWidth = r * 2 + 2;
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y);
+      for (const s of this.segments) ctx.lineTo(s.x, s.y);
+      ctx.stroke();
+
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = r * 2;
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y);
+      for (const s of this.segments) ctx.lineTo(s.x, s.y);
+      ctx.stroke();
+    }
+
+    const hx = this.x, hy = this.y;
+    ctx.fillStyle = this.colorDark;
+    ctx.beginPath(); ctx.arc(hx, hy, r + 1, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = this.color;
+    ctx.beginPath(); ctx.arc(hx, hy, r, 0, Math.PI * 2); ctx.fill();
+
+    const ea = this.angle;
+    const eDist = r * 0.5;
+    const eR = r * 0.3;
+    const ex1 = hx + Math.cos(ea - 0.6) * eDist;
+    const ey1 = hy + Math.sin(ea - 0.6) * eDist;
+    const ex2 = hx + Math.cos(ea + 0.6) * eDist;
+    const ey2 = hy + Math.sin(ea + 0.6) * eDist;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(ex1, ey1, eR, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(ex2, ey2, eR, 0, Math.PI*2); ctx.fill();
+    const pR = eR * 0.55;
+    ctx.fillStyle = '#1a1d24';
+    ctx.beginPath(); ctx.arc(ex1 + Math.cos(ea)*eR*0.35, ey1 + Math.sin(ea)*eR*0.35, pR, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(ex2 + Math.cos(ea)*eR*0.35, ey2 + Math.sin(ea)*eR*0.35, pR, 0, Math.PI*2); ctx.fill();
+
+    ctx.fillStyle = '#e4e6eb';
+    ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+    ctx.lineWidth = 3;
+    ctx.font = `bold ${Math.max(12, r * 0.85)}px system-ui`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    const ny = hy - r - 5;
+    ctx.strokeText(this.name, hx, ny);
+    ctx.fillText(this.name, hx, ny);
+
+    // Renderização das armas: Funciona para o Player local e agora para outros players da rede!
+    if (this === player && currentWeapon) {
+      const aimAngle = isMobile ? player.angle : Math.atan2(mouse.worldY - player.y, mouse.worldX - player.x);
+      drawWeapon(ctx, hx, hy, r, currentWeapon, aimAngle);
+    } else if (this.isNetwork && this.weaponId && WEAPONS[this.weaponId]) {
+      drawWeapon(ctx, hx, hy, r, { id: this.weaponId, def: WEAPONS[this.weaponId] }, this.aimAngle || this.angle);
+    }
+  }
+
+  updateAI(dt, snakes, foods) {
+    if (this.isNetwork) return;
+
+    this.aiTimer -= dt;
+    let immediateDangerX = 0, immediateDangerY = 0;
+    let dangerCount = 0;
+    
+    const checkRange = this.radius * 5 + 40;
+    const checkRangeSq = checkRange * checkRange;
+
+    const dCenter = Math.hypot(this.x - MAP_CX, this.y - MAP_CY);
+    const wallDistThreshold = WORLD_RADIUS - (150 + this.radius);
+
+    if (dCenter > wallDistThreshold) {
+      const angleToCenter = Math.atan2(MAP_CY - this.y, MAP_CX - this.x);
+      immediateDangerX -= Math.cos(angleToCenter + Math.PI) * 2; 
+      immediateDangerY -= Math.sin(angleToCenter + Math.PI) * 2;
+      dangerCount++;
+    }
+
+    for (const other of snakes) {
+      if (other === this || !other.alive) continue;
+      if (Math.abs(this.x - other.x) > 800 || Math.abs(this.y - other.y) > 800) continue;
+
+      if (other.size > this.size * 0.85) {
+        const dHeadSq = dist2(this.x, this.y, other.x, other.y);
+        if (dHeadSq < checkRangeSq * 1.5) {
+          const angleToHead = Math.atan2(other.y - this.y, other.x - this.x);
+          let diff = angleToHead - this.angle;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          
+          if (Math.abs(diff) < Math.PI / 1.8) { 
+             immediateDangerX -= Math.cos(angleToHead) * 2;
+             immediateDangerY -= Math.sin(angleToHead) * 2;
+             dangerCount++;
+          }
+        }
+      }
+
+      for (let i = 0; i < other.segments.length; i += 3) { 
+        const seg = other.segments[i];
+        const dSegSq = dist2(this.x, this.y, seg.x, seg.y);
+        
+        if (dSegSq < checkRangeSq) {
+          const angleToSeg = Math.atan2(seg.y - this.y, seg.x - this.x);
+          let diff = angleToSeg - this.angle;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+
+          if (Math.abs(diff) < Math.PI / 2.2) { 
+            const force = 1 - (Math.sqrt(dSegSq) / checkRange);
+            immediateDangerX -= Math.cos(angleToSeg) * force;
+            immediateDangerY -= Math.sin(angleToSeg) * force;
+            dangerCount++;
+          }
+        }
+      }
+    }
+
+    if (dangerCount > 0) {
+      immediateDangerX += (Math.random() - 0.5) * 0.1;
+      immediateDangerY += (Math.random() - 0.5) * 0.1;
+      this.targetAngle = Math.atan2(immediateDangerY, immediateDangerX);
+      this.boosting = (dangerCount >= 3 && this.size > 15); 
+      return; 
+    }
+
+    let nearestFood = null, nearestFoodD = Infinity;
+    for (const f of foods) {
+      const d = dist2(this.x, this.y, f.x, f.y);
+      if (d < nearestFoodD && d < 400 * 400) {
+        nearestFoodD = d;
+        nearestFood = f;
+      }
+    }
+
+    let prey = null, preyD = Infinity;
+    for (const other of snakes) {
+      if (other === this || !other.alive) continue;
+      const d = dist2(this.x, this.y, other.x, other.y);
+      if (d < 500 * 500 && other.size < this.size * 0.7) {
+        if (d < preyD) { preyD = d; prey = other; }
+      }
+    }
+
+    let targetX, targetY;
+    if (prey && this.size > 25) {
+      const futureX = prey.x + Math.cos(prey.angle) * (prey.radius * 2);
+      const futureY = prey.y + Math.sin(prey.angle) * (prey.radius * 2);
+      targetX = futureX;
+      targetY = futureY;
+      this.boosting = (Math.random() < 0.4 && this.size > 30);
+    } else if (nearestFood) {
+      targetX = nearestFood.x;
+      targetY = nearestFood.y;
+      this.boosting = false;
+    } else {
+      if (this.aiTimer <= 0) {
+        let rx, ry;
+        do { rx = rand(0, WORLD_SIZE); ry = rand(0, WORLD_SIZE); } while (Math.hypot(rx - MAP_CX, ry - MAP_CY) > WORLD_RADIUS - 200);
+        this.aiTarget = { x: rx, y: ry };
+        this.aiTimer = rand(2, 5);
+      }
+      targetX = this.aiTarget.x;
+      targetY = this.aiTarget.y;
+      this.boosting = false;
+    }
+    this.targetAngle = Math.atan2(targetY - this.y, targetX - this.x);
+  }
+}
+
+// =================== FOOD & WEAPONS ===================
+class Food {
+  constructor(x, y, value = 1, color = null) {
+    this.x = x; this.y = y;
+    this.value = value;
+    this.color = color || SNAKE_COLORS[randInt(0, SNAKE_COLORS.length - 1)];
+    this.r = 4 + Math.sqrt(value) * 2;
+  }
+  draw(ctx) {
+    ctx.fillStyle = this.color;
+    ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+class Bullet {
+  constructor(x, y, angle, owner, weaponDef) {
+    this.x = x; this.y = y; this.startX = x; this.startY = y;
+    this.angle = angle; this.speed = weaponDef.speed; this.range = weaponDef.range;
+    this.damage = weaponDef.damage; this.color = weaponDef.bulletColor;
+    this.owner = owner; this.dead = false;
+  }
+  update(dt, snakes, foods) {
+    this.x += Math.cos(this.angle) * this.speed * (dt * 60);
+    this.y += Math.sin(this.angle) * this.speed * (dt * 60);
+    if (Math.hypot(this.x - MAP_CX, this.y - MAP_CY) > WORLD_RADIUS) { this.dead = true; return; }
+    if (dist2(this.x, this.y, this.startX, this.startY) > this.range * this.range) { this.dead = true; return; }
+    for (const s of snakes) {
+      if (s === this.owner || !s.alive) continue;
+      const r = s.radius + 4; const r2 = r * r;
+      if (dist2(this.x, this.y, s.x, s.y) < r2) {
+        s.takeDamage(this.damage, foods);
+        if (s.size <= 8) this.owner.kills++; 
+        this.dead = true; return;
+      }
+      for (let i = 0; i < s.segments.length; i += 2) {
+        if (dist2(this.x, this.y, s.segments[i].x, s.segments[i].y) < r2) {
+          s.takeDamage(this.damage, foods);
+          if (s.size <= 8) this.owner.kills++;
+          this.dead = true; return;
+        }
+      }
+    }
+  }
+  draw(ctx) {
+    ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = this.color; ctx.lineWidth = 2; ctx.beginPath();
+    ctx.moveTo(this.x, this.y); ctx.lineTo(this.x - Math.cos(this.angle) * 12, this.y - Math.sin(this.angle) * 12); ctx.stroke();
+  }
+}
+
+let bullets = [];
+let muzzleFlash = 0;
+let currentWeapon = null;
+
+function equipWeapon(id) {
+  const def = WEAPONS[id];
+  currentWeapon = { id, def, ammo: def.ammo, lastShot: 0 };
+  document.getElementById('weaponHud').classList.add('show');
+  document.getElementById('weaponName').textContent = def.name;
+  updateWeaponHud();
+  updateMobileButtonLabel();
+}
+
+function updateWeaponHud() {
+  if (!currentWeapon) return;
+  document.getElementById('weaponAmmo').textContent = `${currentWeapon.ammo} / ${currentWeapon.def.ammo}`;
+}
+
+function updateMobileButtonLabel() {
+  const btn = document.getElementById('mobileActionButton');
+  if (btn) {
+    btn.textContent = currentWeapon ? 'ATIRAR' : 'BOOST';
+    btn.style.borderColor = currentWeapon ? '#ff7b50' : '#6cb6ff';
+    btn.style.backgroundColor = currentWeapon ? 'rgba(255, 123, 80, 0.4)' : 'rgba(108, 182, 255, 0.4)';
+  }
+}
+
+function tryShoot() {
+  if (!currentWeapon || !player || !player.alive) return;
+  const now = performance.now() / 1000;
+  if (now - currentWeapon.lastShot < currentWeapon.def.fireRate) return;
+  if (currentWeapon.ammo <= 0) {
+    currentWeapon.ammo = currentWeapon.def.ammo; currentWeapon.lastShot = now + 1.0;
+    updateWeaponHud(); return;
+  }
+  currentWeapon.lastShot = now; currentWeapon.ammo--; updateWeaponHud();
+
+  const aimAngle = isMobile ? player.angle : Math.atan2(mouse.worldY - player.y, mouse.worldX - player.x);
+  const def = currentWeapon.def; const muzzleDist = player.radius + 15;
+  const bx = player.x + Math.cos(aimAngle) * muzzleDist;
+  const by = player.y + Math.sin(aimAngle) * muzzleDist;
+
+  for (let i = 0; i < def.pellets; i++) {
+    const spread = (Math.random() - 0.5) * def.spread * 2;
+    bullets.push(new Bullet(bx, by, aimAngle + spread, player, def));
+  }
+  muzzleFlash = 0.06;
+}
+
+function drawWeapon(ctx, hx, hy, r, weapon, aimAngle) {
+  ctx.save(); ctx.translate(hx, hy); ctx.rotate(aimAngle);
+  const isShotgun = weapon.id === 'doze';
+  const barrelLen = isShotgun ? r * 2.2 : r * 1.6;
+  const barrelW = isShotgun ? r * 0.55 : r * 0.4;
+  ctx.fillStyle = '#2c3038'; ctx.fillRect(r * 0.3, -barrelW / 2, barrelLen, barrelW);
+  ctx.fillStyle = '#1a1d24'; ctx.fillRect(r * 0.1, -barrelW / 2 - 2, barrelLen * 0.5, barrelW + 4);
+  if (muzzleFlash > 0) {
+    ctx.fillStyle = 'rgba(255, 220, 100, 0.9)'; ctx.beginPath();
+    ctx.arc(r * 0.3 + barrelLen, 0, weapon.def.muzzleSize, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// =================== GAME STATE ===================
+let snakes = [];
+let foods = [];
+let player = null;
+let camX = 0, camY = 0;
+let camTargetX = 0, camTargetY = 0;
+let zoom = 1, targetZoom = 1;
+let gameRunning = false;
+let startTime = 0;
+
+function spawnFood(n = 1) {
+  for (let i = 0; i < n; i++) {
+    let fx, fy;
+    do { fx = rand(0, WORLD_SIZE); fy = rand(0, WORLD_SIZE); } while (Math.hypot(fx - MAP_CX, fy - MAP_CY) > WORLD_RADIUS - 50);
+    foods.push(new Food(fx, fy, rand(0.6, 1.4)));
+  }
+}
+
+function spawnBot() {
+  let x, y;
+  do { x = rand(0, WORLD_SIZE); y = rand(0, WORLD_SIZE); } while (Math.hypot(x - MAP_CX, y - MAP_CY) > WORLD_RADIUS - 100);
+  const name = BOT_NAMES[randInt(0, BOT_NAMES.length - 1)] + randInt(1, 99);
+  let botSize;
+  const rng = Math.random();
+  if (rng < 0.08) botSize = randInt(400, 800);
+  else if (rng < 0.25) botSize = randInt(100, 300);
+  else botSize = randInt(10, 50);
+  snakes.push(new Snake(x, y, name, false, null, botSize));
+}
+
+function initGame(playerName, initialColor, isOnline = false) {
+  isOnlineMode = isOnline;
+  CURRENT_BOT_COUNT = isOnline ? 0 : 18; 
+  
+  snakes = [];
+  foods = [];
+  bullets = [];
+  currentWeapon = null;
+  document.getElementById('weaponHud').classList.remove('show');
+  codeBuffer = '';
+  
+  player = new Snake(MAP_CX, MAP_CY, playerName || 'Você', true, initialColor, 10);
+  snakes.push(player);
+  
+  for (let i = 0; i < CURRENT_BOT_COUNT; i++) spawnBot();
+  for (let i = 0; i < FOOD_COUNT; i++) spawnFood(1);
+
+  camX = player.x; camY = player.y; camTargetX = camX; camTargetY = camY;
+  
+  // Proporção de Zoom adaptável para Mobile vs Desktop
+  const screenScale = Math.min(W, H) / 1000;
+  zoom = (BASE_ZOOM_RADIUS / player.radius) * Math.max(0.65, Math.min(1.2, screenScale));
+  targetZoom = zoom;
+
+  gameRunning = true;
+  startTime = performance.now();
+  updateMobileButtonLabel();
+}
+
+async function joinOnlineRoom(playerName, playerColor) {
+  const statusEl = document.getElementById('statusMsg');
+  statusEl.style.display = 'block';
+  statusEl.textContent = 'Conectando ao Firebase...';
+
+  const ok = await initFirebase();
+  if (!ok) {
+     statusEl.textContent = 'Falha na conexão.';
+     return;
+  }
+  
+  if (!auth.currentUser) {
+     statusEl.textContent = 'Erro de Autenticação.';
+     return;
+  }
+  
+  myUid = auth.currentUser.uid;
+  statusEl.textContent = 'Entrando na sala...';
+
+  const appId = typeof __app_id !== 'undefined' ? __app_id : 'snake-arena-custom';
+  const playersRef = collection(db, 'artifacts', appId, 'public', 'data', 'online_players');
+
+  if (unsubscribePlayers) unsubscribePlayers();
+
+  unsubscribePlayers = onSnapshot(playersRef, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+          const data = change.doc.data();
+          if (change.doc.id === myUid) return; 
+
+          if (change.type === 'added') {
+              const s = new Snake(data.x, data.y, data.name, false, data.color, data.size);
+              s.id = change.doc.id;
+              s.isNetwork = true; 
+              s.targetAngle = data.angle;
+              s.kills = data.kills || 0;
+              s.weaponId = data.weaponId || null;
+              s.aimAngle = data.aimAngle || data.angle;
+              snakes.push(s);
+          }
+          if (change.type === 'modified') {
+              const s = snakes.find(sn => sn.id === change.doc.id);
+              if (s) {
+                 s.name = data.name;
+                 s.color = data.color;
+                 s.size = data.size;
+                 s.targetAngle = data.angle;
+                 s.kills = data.kills || 0;
+                 s.weaponId = data.weaponId || null;
+                 s.aimAngle = data.aimAngle || data.angle;
+                 
+                 s.x += (data.x - s.x) * 0.5;
+                 s.y += (data.y - s.y) * 0.5;
+
+                 if (!data.alive && s.alive) {
+                    s.die(foods); 
+                 }
+              }
+          }
+          if (change.type === 'removed') {
+              const s = snakes.find(sn => sn.id === change.doc.id);
+              if (s) s.alive = false;
+          }
+      });
+  }, (error) => {
+      console.error("Erro na sala multiplayer:", error);
+  });
+
+  document.getElementById('startMenu').classList.add('hidden');
+  initGame(playerName, playerColor, true);
+}
+
+
+// =================== INPUT E LOOP DO JOGO ===================
+function updatePlayerInput() {
+  if (!player || !player.alive) return;
+  
+  if (isMobile) {
+    mouse.worldX = player.x + Math.cos(player.angle) * 100;
+    mouse.worldY = player.y + Math.sin(player.angle) * 100;
+  } else {
+    mouse.worldX = (mouse.x - W / 2) / zoom + camX;
+    mouse.worldY = (mouse.y - H / 2) / zoom + camY;
+
+    let dx = 0, dy = 0;
+    if (keys['KeyW'] || keys['ArrowUp']) dy -= 1;
+    if (keys['KeyS'] || keys['ArrowDown']) dy += 1;
+    if (keys['KeyA'] || keys['ArrowLeft']) dx -= 1;
+    if (keys['KeyD'] || keys['ArrowRight']) dx += 1;
+
+    if (dx !== 0 || dy !== 0) {
+      player.targetAngle = Math.atan2(dy, dx);
+    } else if (controlMode === 'mouse' && !currentWeapon) {
+      const mdx = mouse.x - W / 2, mdy = mouse.y - H / 2;
+      if (mdx !== 0 || mdy !== 0) player.targetAngle = Math.atan2(mdy, mdx);
+    }
+
+    if (currentWeapon) player.boosting = keys['ShiftLeft'] || keys['ShiftRight'] || keys['Space'];
+    else player.boosting = mouse.down || keys['ShiftLeft'] || keys['ShiftRight'] || keys['Space'];
+  }
+}
+
+let lastTime = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - lastTime) / 1000);
+  lastTime = now;
+  if (gameRunning) { update(dt); render(); }
+  requestAnimationFrame(loop);
+}
+
+function update(dt) {
+  updatePlayerInput();
+
+  if (currentWeapon && mouse.down && !isMobile) tryShoot();
+
+  for (const s of snakes) { if (s !== player && s.alive) s.updateAI(dt, snakes, foods); }
+  for (const s of snakes) s.update(dt, snakes, foods);
+
+  for (const s of snakes) {
+    if (!s.alive) continue;
+    const r2 = (s.radius + 8) * (s.radius + 8);
+    for (let i = foods.length - 1; i >= 0; i--) {
+      const f = foods[i];
+      if (dist2(s.x, s.y, f.x, f.y) < r2) {
+        s.size += f.value;
+        foods.splice(i, 1);
+      }
+    }
+  }
+
+  for (const s of snakes) {
+    if (!s.alive) continue;
+    const hit = s.checkHeadCollision(snakes);
+    if (hit) {
+      hit.kills++;
+      s.die(foods);
+    }
+  }
+
+  for (const b of bullets) b.update(dt, snakes, foods);
+  bullets = bullets.filter(b => !b.dead);
+
+  if (muzzleFlash > 0) muzzleFlash -= dt;
+
+  snakes = snakes.filter(s => s.alive);
+
+  while (snakes.filter(s => s !== player && !s.isNetwork).length < CURRENT_BOT_COUNT) spawnBot();
+  while (foods.length < FOOD_COUNT) spawnFood(1);
+
+  if (player && player.alive) {
+    camTargetX = player.x; camTargetY = player.y;
+    
+    // Proporção adaptável de escala de zoom
+    const screenScale = Math.min(W, H) / 1000;
+    targetZoom = (BASE_ZOOM_RADIUS / player.radius) * Math.max(0.65, Math.min(1.2, screenScale));
+
+    // Sincroniza POSIÇÃO e ARMAS para o Firebase
+    if (isOnlineMode && isFirebaseInitialized) {
+       syncTimer += dt;
+       if (syncTimer > 0.1) {
+          syncTimer = 0;
+          const appId = typeof __app_id !== 'undefined' ? __app_id : 'snake-arena-custom';
+          const pRef = doc(db, 'artifacts', appId, 'public', 'data', 'online_players', myUid);
+          
+          setDoc(pRef, {
+             name: player.name,
+             color: player.color,
+             x: player.x,
+             y: player.y,
+             angle: player.angle, 
+             size: player.size,
+             alive: player.alive,
+             kills: player.kills,
+             weaponId: currentWeapon ? currentWeapon.id : null,
+             aimAngle: currentWeapon ? (isMobile ? player.angle : Math.atan2(mouse.worldY - player.y, mouse.worldX - player.x)) : player.angle
+          }).catch(console.error);
+       }
+    }
+  }
+
+  camX += (camTargetX - camX) * CAM_LERP;
+  camY += (camTargetY - camY) * CAM_LERP;
+  zoom += (targetZoom - zoom) * CAM_LERP;
+
+  if (player && !player.alive) onPlayerDeath();
+
+  updateHUD();
+}
+
+function render() {
+  ctx.fillStyle = '#1a1d24'; ctx.fillRect(0, 0, W, H);
+
+  const gridSize = 80;
+  let offsetX = (W / 2 - camX * zoom) % gridSize; if (offsetX < 0) offsetX += gridSize;
+  let offsetY = (H / 2 - camY * zoom) % gridSize; if (offsetY < 0) offsetY += gridSize;
+
+  ctx.save();
+  ctx.translate(W / 2, H / 2);
+  ctx.scale(zoom, zoom);
+  ctx.translate(-camX, -camY);
+  
+  ctx.beginPath(); ctx.arc(MAP_CX, MAP_CY, WORLD_RADIUS, 0, Math.PI * 2); ctx.clip();
+
+  ctx.strokeStyle = '#22262e'; ctx.lineWidth = 1 / zoom; ctx.beginPath();
+  for (let x = 0; x < WORLD_SIZE; x += gridSize) { ctx.moveTo(x, 0); ctx.lineTo(x, WORLD_SIZE); }
+  for (let y = 0; y < WORLD_SIZE; y += gridSize) { ctx.moveTo(0, y); ctx.lineTo(WORLD_SIZE, y); }
+  ctx.stroke();
+
+  ctx.strokeStyle = '#4a3030'; ctx.lineWidth = 6 / zoom; ctx.beginPath();
+  ctx.arc(MAP_CX, MAP_CY, WORLD_RADIUS, 0, Math.PI * 2); ctx.stroke();
+
+  const pad = 50 / zoom;
+  const viewLeft = camX - W / 2 / zoom - pad, viewRight = camX + W / 2 / zoom + pad;
+  const viewTop = camY - H / 2 / zoom - pad, viewBottom = camY + H / 2 / zoom + pad;
+
+  for (const f of foods) {
+    if (f.x < viewLeft || f.x > viewRight || f.y < viewTop || f.y > viewBottom) continue;
+    f.draw(ctx);
+  }
+
+  const sorted = snakes.slice().sort((a, b) => (a === player ? 1 : -1));
+  for (const s of sorted) s.draw(ctx);
+  for (const b of bullets) b.draw(ctx);
+
+  ctx.restore();
+
+  // Mira de arma na tela apenas no Desktop
+  if (currentWeapon && player && player.alive && !isMobile) {
+    ctx.strokeStyle = '#e4e6eb'; ctx.lineWidth = 1.5; const mx = mouse.x, my = mouse.y;
+    ctx.beginPath(); ctx.arc(mx, my, 14, 0, Math.PI * 2);
+    ctx.moveTo(mx - 20, my); ctx.lineTo(mx - 8, my); ctx.moveTo(mx + 8, my); ctx.lineTo(mx + 20, my);
+    ctx.moveTo(mx, my - 20); ctx.lineTo(mx, my - 8); ctx.moveTo(mx, my + 8); ctx.lineTo(mx, my + 20);
+    ctx.stroke();
+  }
+
+  drawMinimap();
+}
+
+function drawMinimap() {
+  mctx.clearRect(0, 0, 140, 140); mctx.fillStyle = '#15171c'; mctx.fillRect(0, 0, 140, 140);
+  const scale = 140 / WORLD_SIZE;
+  
+  mctx.strokeStyle = '#4a3030'; mctx.lineWidth = 2; mctx.beginPath();
+  mctx.arc(70, 70, 69, 0, Math.PI * 2); mctx.stroke();
+
+  for (const s of snakes) {
+    if (!s.alive) continue;
+    mctx.fillStyle = s === player ? '#6cb6ff' : s.color;
+    const ms = s === player ? 4 : 2.5;
+    mctx.beginPath(); mctx.arc(s.x * scale, s.y * scale, ms, 0, Math.PI * 2); mctx.fill();
+  }
+  
+  if (player) {
+    mctx.strokeStyle = '#6cb6ff'; mctx.lineWidth = 1;
+    const viewW = W / zoom, viewH = H / zoom;
+    mctx.strokeRect((camX - viewW / 2) * scale, (camY - viewH / 2) * scale, viewW * scale, viewH * scale);
+  }
+}
+
+function updateHUD() {
+  if (!player) return;
+  document.getElementById('size').textContent = Math.floor(player.size);
+  document.getElementById('length').textContent = player.segments.length;
+  document.getElementById('kills').textContent = player.kills;
+  
+  const sortedSnakes = snakes.slice().sort((a, b) => b.size - a.size);
+  const rank = sortedSnakes.indexOf(player) + 1;
+  document.getElementById('rank').textContent = `#${rank}`;
+
+  const lb = document.getElementById('lbList');
+  lb.innerHTML = '';
+  const top = sortedSnakes.slice(0, 6);
+  if (player.alive && !top.includes(player) && rank > 0) top.push(player);
+  for (let i = 0; i < top.length; i++) {
+    const s = top[i];
+    const row = document.createElement('div');
+    row.className = 'lb-row' + (s === player ? ' you' : '');
+    row.innerHTML = `
+      <div class="lb-name">
+        <span class="lb-dot" style="background:${s.color}"></span>
+        ${i+1}. ${s.name}
+      </div>
+      <div>${Math.floor(s.size)}</div>
+    `;
+    lb.appendChild(row);
+  }
+}
+
+function onPlayerDeath() {
+  gameRunning = false;
+  const elapsed = Math.floor((performance.now() - startTime) / 1000);
+  document.getElementById('deathSize').textContent = Math.floor(player.size);
+  document.getElementById('deathTime').textContent = elapsed + 's';
+  document.getElementById('deathKills').textContent = player.kills;
+  document.getElementById('deathMenu').classList.remove('hidden');
+}
+
+window.addEventListener('beforeunload', () => {
+    if (isOnlineMode && isFirebaseInitialized && myUid && player && player.alive) {
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'snake-arena-custom';
+        deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'online_players', myUid)).catch(console.error);
+    }
+});
+
+// =================== EVENTOS DOS MENUS ===================
+document.getElementById('startBtn').addEventListener('click', () => {
+  const name = document.getElementById('playerName').value.trim() || 'Você';
+  const color = document.getElementById('playerColor').value;
+  document.getElementById('startMenu').classList.add('hidden');
+  document.getElementById('statusMsg').style.display = 'none';
+  initGame(name, color, false);
+});
+
+document.getElementById('onlineBtn').addEventListener('click', () => {
+  const name = document.getElementById('playerName').value.trim() || 'Você';
+  const color = document.getElementById('playerColor').value;
+  joinOnlineRoom(name, color);
+});
+
+document.getElementById('restartBtn').addEventListener('click', () => {
+  document.getElementById('deathMenu').classList.add('hidden');
+  document.getElementById('startMenu').classList.remove('hidden');
+  document.getElementById('statusMsg').style.display = 'none';
+});
+
+document.getElementById('playerName').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('startBtn').click();
+});
+
+document.getElementById('applyCheatBtn').addEventListener('click', () => {
+  const val = parseInt(document.getElementById('inGameCustomSize').value);
+  if (!isNaN(val) && val >= 10 && player && player.alive) {
+    player.size = val;
+  }
+  document.getElementById('cheatOverlay').classList.add('hidden');
+  lastTime = performance.now(); 
+  gameRunning = true;
+});
+document.getElementById('inGameCustomSize').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('applyCheatBtn').click();
+});
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
